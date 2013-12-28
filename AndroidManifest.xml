@@ -287,6 +287,16 @@
                   android:process="com.android.incallui">
         </activity>
 
+        <activity android:name="com.android.incallui.InCallCardActivity"
+                  android:theme="@android:style/Theme.Translucent.NoTitleBar"
+                  android:label="@string/phoneAppLabel"
+                  android:excludeFromRecents="true"
+                  android:launchMode="singleInstance"
+                  android:configChanges="keyboardHidden"
+                  android:exported="false"
+                  android:process="com.android.incallui">
+        </activity>
+
         <activity
             android:name=".preference.IPCallPreferenceActivity"
             android:label="@string/dialer_ipcall_title"
