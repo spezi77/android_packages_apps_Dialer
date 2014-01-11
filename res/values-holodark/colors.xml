@@ -19,7 +19,7 @@
     <!-- Secondary text color in the Phone app -->
     <color name="dialtacts_primary_text_color">#FFFFFF</color>
     <color name="dialtacts_secondary_text_color">#888888</color>
-    <color name="dialpad_text_color">#FFFFFF</color>
+    <color name="dialpad_text_color">#000000</color>
 
     <!-- Color of the text describing an unconsumed missed call. -->
     <color name="call_log_missed_call_highlight_color">#FF0000</color>
