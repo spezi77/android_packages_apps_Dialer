@@ -68,7 +68,6 @@ import com.android.contacts.common.dialog.ClearFrequentsDialog;
 import com.android.contacts.common.interactions.ImportExportDialogFragment;
 import com.android.contacts.common.list.OnPhoneNumberPickerActionListener;
 import com.android.dialer.calllog.CallLogActivity;
-import com.android.dialer.cmstats.DialerStats;
 import com.android.dialer.database.DialerDatabaseHelper;
 import com.android.dialer.dialpad.DialpadFragment;
 import com.android.dialer.dialpad.SmartDialNameMatcher;
@@ -221,14 +220,6 @@ public class DialtactsActivity extends TransactionSafeActivity implements View.O
             new OnPhoneNumberPickerActionListener() {
                 @Override
                 public void onPickPhoneNumberAction(Uri dataUri) {
-                    if (mInDialpadSearch) {
-                        DialerStats.sendEvent(DialtactsActivity.this,
-                                DialerStats.Categories.INITIATE_CALL, "call_from_dialpad_search");
-                    } else if (mInRegularSearch) {
-                        DialerStats.sendEvent(DialtactsActivity.this,
-                                DialerStats.Categories.INITIATE_CALL, "call_from_regular_search");
-                    }
-
                     // Specify call-origin so that users will see the previous tab instead of
                     // CallLog screen (search UI will be automatically exited).
                     PhoneNumberInteraction.startInteractionForPhoneCall(
@@ -327,7 +318,7 @@ public class DialtactsActivity extends TransactionSafeActivity implements View.O
 
         setContentView(R.layout.dialtacts_activity);
 
-        DialerStats.sendEvent(this, DialerStats.Categories.APP_LAUNCH, DialtactsActivity.class.getSimpleName());
+        getActionBar().hide();
 
         // Add the favorites fragment, and the dialpad fragment, but only if savedInstanceState
         // is null. Otherwise the fragment manager takes care of recreating these fragments.
@@ -387,25 +378,7 @@ public class DialtactsActivity extends TransactionSafeActivity implements View.O
         }
         prepareVoiceSearchButton();
         mFirstLaunch = false;
-
-        // make this call on resume in case user changed t9 locale in settings
-        SmartDialPrefix.initializeNanpSettings(this);
-
-        // if locale has changed since last time, refresh the smart dial db
-        Locale locale = SmartDialPrefix.getT9SearchInputLocale(this);
-        SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(this);
-        String prevLocale = prefs.getString(PREF_LAST_T9_LOCALE, null);
-
-        if (!TextUtils.equals(locale.toString(), prevLocale)) {
-            mDialerDatabaseHelper.recreateSmartDialDatabaseInBackground();
-            if (mDialpadFragment != null)
-                mDialpadFragment.refreshKeypad();
-
-            prefs.edit().putString(PREF_LAST_T9_LOCALE, locale.toString()).apply();
-        }
-        else {
-            mDialerDatabaseHelper.startSmartDialUpdateThread();
-        }
+        mDialerDatabaseHelper.startSmartDialUpdateThread();
     }
 
     @Override
@@ -533,7 +506,6 @@ public class DialtactsActivity extends TransactionSafeActivity implements View.O
                 }
                 break;
             case R.id.voice_search_button:
-                DialerStats.sendEvent(DialtactsActivity.this, DialerStats.Categories.BUTTON_EVENT, "voice_clicked");
                 try {
                     startActivityForResult(new Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH),
                             ACTIVITY_REQUEST_CODE_VOICE_SEARCH);
@@ -585,7 +557,6 @@ public class DialtactsActivity extends TransactionSafeActivity implements View.O
     }
 
     private void showDialpadFragment(boolean animate) {
-        DialerStats.sendEvent(DialtactsActivity.this, DialerStats.Categories.BUTTON_EVENT, "dialer_shown");
         mDialpadFragment.setAdjustTranslationForAnimation(animate);
         final FragmentTransaction ft = getFragmentManager().beginTransaction();
         if (animate) {
@@ -631,7 +602,6 @@ public class DialtactsActivity extends TransactionSafeActivity implements View.O
         mSearchView = (EditText) findViewById(R.id.search_view);
         mSearchView.addTextChangedListener(mPhoneSearchQueryTextListener);
         mSearchView.setHint(getString(R.string.dialer_hint_find_contact));
-        setupEvent(mSearchViewContainer, R.id.search_view, DialerStats.Categories.BUTTON_EVENT, "search_clicked");
 
         prepareVoiceSearchButton();
     }
@@ -887,14 +857,12 @@ public class DialtactsActivity extends TransactionSafeActivity implements View.O
             new PhoneFavoriteFragment.Listener() {
         @Override
         public void onContactSelected(Uri contactUri) {
-            DialerStats.sendEvent(DialtactsActivity.this, DialerStats.Categories.INITIATE_CALL, "call_from_favorite_tile");
             PhoneNumberInteraction.startInteractionForPhoneCall(
                         DialtactsActivity.this, contactUri, getCallOrigin());
         }
 
         @Override
         public void onCallNumberDirectly(String phoneNumber) {
-            DialerStats.sendEvent(DialtactsActivity.this, DialerStats.Categories.INITIATE_CALL, "call_from_favorite_tile");
             Intent intent = CallUtil.getCallIntent(phoneNumber, getCallOrigin());
             startActivity(intent);
         }
@@ -1075,7 +1043,6 @@ public class DialtactsActivity extends TransactionSafeActivity implements View.O
     }
 
     public void allContactsClick(View v) {
-        DialerStats.sendEvent(DialtactsActivity.this, DialerStats.Categories.BUTTON_EVENT, "contacts_clicked");
         onShowAllContacts();
     }
 
@@ -1145,22 +1112,5 @@ public class DialtactsActivity extends TransactionSafeActivity implements View.O
 
     private boolean shouldShowOnscreenDialButton() {
         return getResources().getBoolean(R.bool.config_show_onscreen_dial_button);
-    }
-
-    /**
-     * Add analytics event for view
-     * @param v
-     * @param buttonId
-     * @param category
-     * @param action
-     */
-    private void setupEvent(View v, int buttonId, final String category, final String action) {
-        final View pageviewButton = v.findViewById(buttonId);
-        pageviewButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                DialerStats.sendEvent(DialtactsActivity.this, category, action);
-            }
-        });
     }
 }

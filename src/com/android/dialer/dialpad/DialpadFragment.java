@@ -29,6 +29,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.res.Configuration;
 import android.content.res.Resources;
+import android.database.ContentObserver;
 import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
@@ -36,9 +37,11 @@ import android.media.AudioManager;
 import android.media.ToneGenerator;
 import android.net.Uri;
 import android.os.Bundle;
+import android.os.Handler;
 import android.os.RemoteException;
 import android.os.ServiceManager;
 import android.os.SystemProperties;
+import android.os.UserHandle;
 import android.provider.Contacts.People;
 import android.provider.Contacts.Phones;
 import android.provider.Contacts.PhonesColumns;
@@ -82,7 +85,6 @@ import com.android.dialer.NeededForReflection;
 import com.android.dialer.DialtactsActivity;
 import com.android.dialer.R;
 import com.android.dialer.SpecialCharSequenceMgr;
-import com.android.dialer.cmstats.DialerStats;
 import com.android.internal.telephony.ITelephony;
 import com.android.phone.common.CallLogAsync;
 import com.android.phone.common.HapticFeedback;
@@ -102,6 +104,11 @@ public class DialpadFragment extends Fragment
         DialpadKeyButton.OnPressedListener {
     private static final String TAG = DialpadFragment.class.getSimpleName();
 
+    private Context mContext;
+
+    private SettingsObserver mSettingsObserver;
+
+    private View mFragmentView;
     /**
      * This interface allows the DialpadFragment to tell its hosting Activity when and when not
      * to display the "dial" button. While this is logically part of the DialpadFragment, the
@@ -355,6 +362,9 @@ public class DialpadFragment extends Fragment
     @Override
     public void onCreate(Bundle state) {
         super.onCreate(state);
+
+        mContext = getActivity().getApplicationContext();
+
         mFirstLaunch = true;
         mCurrentCountryIso = GeoUtil.getCurrentCountryIso(getActivity());
 
@@ -371,6 +381,9 @@ public class DialpadFragment extends Fragment
         if (state != null) {
             mDigitsFilledByIntent = state.getBoolean(PREF_DIGITS_FILLED_BY_INTENT);
         }
+
+        mSettingsObserver = new SettingsObserver(new Handler());
+        mSettingsObserver.observe();
     }
 
     @Override
@@ -630,9 +643,13 @@ public class DialpadFragment extends Fragment
                 R.string.dialpad_8_2_letters, R.string.dialpad_9_2_letters,
                 R.string.dialpad_star_2_letters, R.string.dialpad_pound_2_letters};
 
-        // load the dialpad resources based on the t9 serach input locale
-        Locale t9SearchInputLocale = SmartDialPrefix.getT9SearchInputLocale(getActivity());
-        final Resources resources = getResourcesForLocale(t9SearchInputLocale);
+        final Resources resources = getResources();
+
+        final int pixels = Settings.System.getInt(mContext.getContentResolver(),
+                Settings.System.DIALKEY_PADDING, 0);
+        final float paddingToDp =
+                resources.getDisplayMetrics().density * pixels + 0.5f;
+        final int padding = (int) paddingToDp;
 
         DialpadKeyButton dialpadKey;
         TextView numberView;
@@ -643,6 +660,7 @@ public class DialpadFragment extends Fragment
             dialpadKey = (DialpadKeyButton) fragmentView.findViewById(buttonIds[i]);
             dialpadKey.setLayoutParams(new TableRow.LayoutParams(
                     TableRow.LayoutParams.MATCH_PARENT, TableRow.LayoutParams.MATCH_PARENT));
+            dialpadKey.setPadding(0, padding, 0, padding);
             dialpadKey.setOnPressedListener(this);
             numberView = (TextView) dialpadKey.findViewById(R.id.dialpad_key_number);
             lettersView = (TextView) dialpadKey.findViewById(R.id.dialpad_key_letters);
@@ -1164,8 +1182,6 @@ public class DialpadFragment extends Fragment
         if (isDigitsEmpty()) { // No number entered.
             handleDialButtonClickWithEmptyDigits();
         } else {
-            DialerStats.sendEvent(getActivity(), DialerStats.Categories.INITIATE_CALL, "call_from_dialpad_direct");
-
             final String number = mDigits.getText().toString();
 
             // "persist.radio.otaspdial" is a temporary hack needed for one carrier's automated
@@ -1773,5 +1789,33 @@ public class DialpadFragment extends Fragment
         overrideConfig.setLocale(locale);
         Context localeContext = getActivity().createConfigurationContext(overrideConfig);
         return localeContext.getResources();
+    }
+
+    /**
+     * Settingsobserver to listen for dialpad padding changes
+     */
+    private class SettingsObserver extends ContentObserver {
+        SettingsObserver(Handler handler) {
+            super(handler);
+        }
+
+        void observe() {
+            final ContentResolver resolver = mContext.getContentResolver();
+            resolver.registerContentObserver(Settings.System.getUriFor(
+                    Settings.System.DIALKEY_PADDING),
+                    false, this);
+        }
+
+        @Override
+        public void onChange(boolean selfChange) {
+            super.onChange(selfChange);
+            update();
+        }
+
+        public void update() {
+            if (mFragmentView != null) {
+                setupKeypad(mFragmentView);
+            }
+        }
     }
 }

@@ -30,7 +30,6 @@ import com.android.contacts.common.list.OnPhoneNumberPickerActionListener;
 import com.android.contacts.common.list.PhoneNumberPickerFragment;
 import com.android.dialer.DialtactsActivity;
 import com.android.dialer.R;
-import com.android.dialer.cmstats.DialerStats;
 import com.android.dialer.dialpad.DialpadFragment;
 import com.android.dialer.list.OnListFragmentScrolledListener;
 
@@ -98,19 +97,11 @@ public class SearchFragment extends PhoneNumberPickerFragment {
         final int shortcutType = adapter.getShortcutTypeFromPosition(position);
 
         if (shortcutType == DialerPhoneNumberListAdapter.SHORTCUT_INVALID) {
-            DirectoryPartition partition =
-                    (DirectoryPartition)adapter.getPartition(adapter.getPartitionForPosition(position));
-            if (TextUtils.equals(partition.getLabel(),
-                    getResources().getString(R.string.nearby_places))) {
-                DialerStats.sendEvent(getContext(), "lookup", "nearby_lookup");
-            }
             super.onItemClick(position, id);
         } else if (shortcutType == DialerPhoneNumberListAdapter.SHORTCUT_DIRECT_CALL) {
             final OnPhoneNumberPickerActionListener listener =
                     getOnPhoneNumberPickerListener();
             if (listener != null) {
-                DialerStats.sendEvent(getContext(),
-                        DialerStats.Categories.INITIATE_CALL, "call_from_direct_dial_search");
                 listener.onCallNumberDirectly(getQueryString());
             }
         } else if (shortcutType == DialerPhoneNumberListAdapter.SHORTCUT_ADD_NUMBER_TO_CONTACTS) {

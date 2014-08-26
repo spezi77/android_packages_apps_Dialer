@@ -118,40 +118,15 @@ public class SmartDialPrefix {
         /** Queries the NANP country list to find out whether user is in a NANP region.*/
         sUserInNanpRegion = isCountryNanp(sUserSimCountryCode);
 
-        /** Sets a layout for SmartDial based on locale.  Lookup by language first and fallback to country */
-        Locale locale = getT9SearchInputLocale(context);
-        mMap = languageToSmartDialMap.get(locale.getLanguage());
-        if (mMap == null)
-            mMap = countryToSmartDialMap.get(locale.getCountry());
-        if (mMap == null)
+        /** Sets a layout for SmartDial depending on current UI language.*/
+        String locale = context.getResources().getConfiguration().locale.getCountry();
+        if (locale.equals("RU")) {
+            mMap = new RussianSmartDialMap();
+        } else {
             mMap = new LatinSmartDialMap();
-
-        sNanpInitialized = true;
-    }
-
-    // for testing only
-    @VisibleForTesting
-    static void setSmartDialMap(SmartDialMap map) {
-        mMap = map;
-    }
-
-    public static Locale getT9SearchInputLocale(Context context) {
-        // Use system locale by default
-        Locale locale = context.getResources().getConfiguration().locale;
-
-        // Override with t9 search input locale from settings if provided
-        String overrideLocaleString = android.provider.Settings.System.getString(
-                context.getContentResolver(),
-                android.provider.Settings.System.T9_SEARCH_INPUT_LOCALE);
-        if (overrideLocaleString != null && !overrideLocaleString.isEmpty()) {
-            String[] tokens = overrideLocaleString.split("_");
-            String lang = tokens.length > 0 ? tokens[0] : "";
-            String country = tokens.length > 1 ? tokens[1] : "";
-            String variant = tokens.length > 2 ? tokens[2] : "";
-            locale = new Locale(lang, country, variant);
         }
 
-        return locale;
+        sNanpInitialized = true;
     }
 
     /**
